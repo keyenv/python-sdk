@@ -19,7 +19,7 @@ from .types import (
     User,
 )
 
-DEFAULT_BASE_URL = "https://api.keyenv.dev"
+BASE_URL = "https://api.keyenv.dev"
 DEFAULT_TIMEOUT = 30.0
 
 
@@ -32,27 +32,20 @@ class KeyEnv:
         >>> secrets = client.export_secrets("project-id", "production")
     """
 
-    def __init__(
-        self,
-        token: str,
-        base_url: str = DEFAULT_BASE_URL,
-        timeout: float = DEFAULT_TIMEOUT,
-    ):
+    def __init__(self, token: str, timeout: float = DEFAULT_TIMEOUT):
         """Initialize the KeyEnv client.
 
         Args:
             token: Service token for authentication.
-            base_url: API base URL (default: https://api.keyenv.dev).
             timeout: Request timeout in seconds (default: 30).
         """
         if not token:
             raise ValueError("KeyEnv token is required")
 
         self._token = token
-        self._base_url = base_url.rstrip("/")
         self._timeout = timeout
         self._client = httpx.Client(
-            base_url=self._base_url,
+            base_url=BASE_URL,
             timeout=timeout,
             headers={
                 "Authorization": f"Bearer {token}",

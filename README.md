@@ -28,11 +28,7 @@ print(os.environ["DATABASE_URL"])
 ```python
 from keyenv import KeyEnv
 
-client = KeyEnv(
-    token="your-service-token",
-    # Optional: custom API URL for self-hosted instances
-    base_url="https://api.keyenv.dev",
-)
+client = KeyEnv(token="your-service-token")
 
 # Use as context manager for automatic cleanup
 with KeyEnv(token="your-token") as client:
@@ -133,14 +129,13 @@ from keyenv import Secret, SecretWithValue, Project
 
 ## API Reference
 
-### `KeyEnv(token, base_url, timeout)`
+### `KeyEnv(token, timeout)`
 
 Create a new KeyEnv client.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `token` | `str` | Yes | - | Service token |
-| `base_url` | `str` | No | `https://api.keyenv.dev` | API base URL |
 | `timeout` | `float` | No | `30.0` | Request timeout (seconds) |
 
 ### Methods
