@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "keyenv"
+version = "1.0.0"
+description = "Official Python SDK for KeyEnv - Secure secrets management"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "KeyEnv", email = "support@keyenv.dev" }]
+keywords = ["keyenv", "secrets", "environment", "env", "dotenv", "secrets-management"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.9"
+dependencies = ["httpx>=0.25.0"]
+
+[project.urls]
+Homepage = "https://keyenv.dev"
+Documentation = "https://github.com/keyenv/python-sdk#readme"
+Repository = "https://github.com/keyenv/python-sdk"
+Issues = "https://github.com/keyenv/python-sdk/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["keyenv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
