@@ -1,6 +1,7 @@
 """KeyEnv API client."""
 
 import os
+import time
 from datetime import datetime
 from typing import Any
 
@@ -22,6 +23,13 @@ from .types import (
 BASE_URL = "https://api.keyenv.dev"
 DEFAULT_TIMEOUT = 30.0
 
+# Module-level cache for secrets (survives across warm serverless invocations)
+_secrets_cache: dict[str, tuple[list[SecretWithValue], float]] = {}
+
+
+def _get_cache_key(project_id: str, environment: str) -> str:
+    return f"{project_id}:{environment}"
+
 
 class KeyEnv:
     """KeyEnv API client for managing secrets.
@@ -30,20 +38,31 @@ class KeyEnv:
         >>> from keyenv import KeyEnv
         >>> client = KeyEnv(token="your-service-token")
         >>> secrets = client.export_secrets("project-id", "production")
+
+    For serverless environments, enable caching:
+        >>> client = KeyEnv(token="your-token", cache_ttl=300)  # 5 minutes
     """
 
-    def __init__(self, token: str, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(self, token: str, timeout: float = DEFAULT_TIMEOUT, cache_ttl: int = 0):
         """Initialize the KeyEnv client.
 
         Args:
             token: Service token for authentication.
             timeout: Request timeout in seconds (default: 30).
+            cache_ttl: Cache TTL in seconds for export_secrets/load_env (default: 0 = disabled).
+                Also configurable via KEYENV_CACHE_TTL env var.
         """
         if not token:
             raise ValueError("KeyEnv token is required")
 
         self._token = token
         self._timeout = timeout
+        # Cache TTL: constructor option → env var → 0 (disabled)
+        if cache_ttl > 0:
+            self._cache_ttl = cache_ttl
+        else:
+            env_ttl = os.environ.get("KEYENV_CACHE_TTL", "0")
+            self._cache_ttl = int(env_ttl) if env_ttl.isdigit() else 0
         self._client = httpx.Client(
             base_url=BASE_URL,
             timeout=timeout,
@@ -162,11 +181,30 @@ class KeyEnv:
         return [Secret.from_dict(s) for s in data.get("secrets", [])]
 
     def export_secrets(self, project_id: str, environment: str) -> list[SecretWithValue]:
-        """Export all secrets with their decrypted values."""
+        """Export all secrets with their decrypted values.
+
+        Results are cached when cache_ttl > 0.
+        """
+        cache_key = _get_cache_key(project_id, environment)
+
+        # Check cache if TTL > 0
+        if self._cache_ttl > 0:
+            cached = _secrets_cache.get(cache_key)
+            if cached is not None:
+                secrets, expires_at = cached
+                if time.time() < expires_at:
+                    return secrets
+
         data = self._request(
             "GET", f"/api/v1/projects/{project_id}/environments/{environment}/secrets/export"
         )
-        return [SecretWithValue.from_dict(s) for s in data.get("secrets", [])]
+        secrets = [SecretWithValue.from_dict(s) for s in data.get("secrets", [])]
+
+        # Store in cache if TTL > 0
+        if self._cache_ttl > 0:
+            _secrets_cache[cache_key] = (secrets, time.time() + self._cache_ttl)
+
+        return secrets
 
     def export_secrets_as_dict(self, project_id: str, environment: str) -> dict[str, str]:
         """Export secrets as a key-value dictionary."""
@@ -197,6 +235,7 @@ class KeyEnv:
             f"/api/v1/projects/{project_id}/environments/{environment}/secrets",
             payload,
         )
+        self.clear_cache(project_id, environment)
         return Secret.from_dict(data.get("secret", data))
 
     def update_secret(
@@ -216,6 +255,7 @@ class KeyEnv:
             f"/api/v1/projects/{project_id}/environments/{environment}/secrets/{key}",
             payload,
         )
+        self.clear_cache(project_id, environment)
         return Secret.from_dict(data.get("secret", data))
 
     def set_secret(
@@ -239,6 +279,7 @@ class KeyEnv:
         self._request(
             "DELETE", f"/api/v1/projects/{project_id}/environments/{environment}/secrets/{key}"
         )
+        self.clear_cache(project_id, environment)
 
     def get_secret_history(
         self, project_id: str, environment: str, key: str
@@ -266,6 +307,7 @@ class KeyEnv:
             f"/api/v1/projects/{project_id}/environments/{environment}/secrets/bulk",
             {"secrets": secret_list, "overwrite": overwrite},
         )
+        self.clear_cache(project_id, environment)
         return BulkImportResult.from_dict(data)
 
     # =========================================================================
@@ -302,3 +344,25 @@ class KeyEnv:
                 lines.append(f"{secret.key}={value}")
 
         return "\n".join(lines) + "\n"
+
+    def clear_cache(
+        self, project_id: str | None = None, environment: str | None = None
+    ) -> None:
+        """Clear the secrets cache.
+
+        Args:
+            project_id: Clear cache for specific project (optional).
+            environment: Clear cache for specific environment (requires project_id).
+        """
+        if project_id and environment:
+            cache_key = _get_cache_key(project_id, environment)
+            _secrets_cache.pop(cache_key, None)
+        elif project_id:
+            # Clear all environments for this project
+            keys_to_delete = [
+                k for k in _secrets_cache.keys() if k.startswith(f"{project_id}:")
+            ]
+            for key in keys_to_delete:
+                del _secrets_cache[key]
+        else:
+            _secrets_cache.clear()

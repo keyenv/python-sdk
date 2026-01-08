@@ -203,6 +203,215 @@ class TestKeyEnvAPICalls:
             assert result.created == 2
             assert result.updated == 0
 
+    def test_get_project(self, client, mock_response):
+        mock_project = {
+            "id": "proj-1",
+            "team_id": "team-1",
+            "name": "My Project",
+            "slug": "my-project",
+            "created_at": "2024-01-01T00:00:00Z",
+            "environments": [
+                {"id": "env-1", "project_id": "proj-1", "name": "development", "created_at": "2024-01-01T00:00:00Z"},
+                {"id": "env-2", "project_id": "proj-1", "name": "production", "created_at": "2024-01-01T00:00:00Z"},
+            ],
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_project)
+            project = client.get_project("proj-1")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/projects/proj-1", json=None)
+            assert project.id == "proj-1"
+            assert project.name == "My Project"
+            assert len(project.environments) == 2
+
+    def test_create_project(self, client, mock_response):
+        mock_project = {
+            "id": "proj-new",
+            "team_id": "team-1",
+            "name": "New Project",
+            "slug": "new-project",
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(201, mock_project)
+            project = client.create_project("team-1", "New Project")
+
+            mock_request.assert_called_once_with(
+                "POST", "/api/v1/projects", json={"team_id": "team-1", "name": "New Project"}
+            )
+            assert project.id == "proj-new"
+            assert project.name == "New Project"
+
+    def test_delete_project(self, client, mock_response):
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(204)
+            result = client.delete_project("proj-1")
+
+            mock_request.assert_called_once_with("DELETE", "/api/v1/projects/proj-1", json=None)
+            assert result is None
+
+    def test_list_environments(self, client, mock_response):
+        mock_environments = {
+            "environments": [
+                {"id": "env-1", "project_id": "proj-1", "name": "development", "created_at": "2024-01-01T00:00:00Z"},
+                {"id": "env-2", "project_id": "proj-1", "name": "staging", "created_at": "2024-01-01T00:00:00Z"},
+                {"id": "env-3", "project_id": "proj-1", "name": "production", "created_at": "2024-01-01T00:00:00Z"},
+            ]
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_environments)
+            environments = client.list_environments("proj-1")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/projects/proj-1/environments", json=None)
+            assert len(environments) == 3
+            assert environments[0].name == "development"
+
+    def test_create_environment(self, client, mock_response):
+        mock_environment = {
+            "id": "env-new",
+            "project_id": "proj-1",
+            "name": "staging",
+            "inherits_from": "development",
+            "created_at": "2024-01-01T00:00:00Z",
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(201, mock_environment)
+            environment = client.create_environment("proj-1", "staging", "development")
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/projects/proj-1/environments",
+                json={"name": "staging", "inherits_from": "development"},
+            )
+            assert environment.name == "staging"
+            assert environment.inherits_from == "development"
+
+    def test_delete_environment(self, client, mock_response):
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(204)
+            result = client.delete_environment("proj-1", "staging")
+
+            mock_request.assert_called_once_with(
+                "DELETE", "/api/v1/projects/proj-1/environments/staging", json=None
+            )
+            assert result is None
+
+    def test_list_secrets(self, client, mock_response):
+        mock_secrets = {
+            "secrets": [
+                {"id": "s1", "environment_id": "env-1", "key": "DATABASE_URL", "type": "string", "version": 1, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z"},
+                {"id": "s2", "environment_id": "env-1", "key": "API_KEY", "type": "string", "version": 1, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z"},
+            ]
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets)
+            secrets = client.list_secrets("proj-1", "production")
+
+            mock_request.assert_called_once_with(
+                "GET", "/api/v1/projects/proj-1/environments/production/secrets", json=None
+            )
+            assert len(secrets) == 2
+            assert secrets[0].key == "DATABASE_URL"
+
+    def test_get_secret(self, client, mock_response):
+        mock_secret = {
+            "secret": {
+                "id": "s1",
+                "environment_id": "env-1",
+                "key": "DATABASE_URL",
+                "value": "postgres://localhost:5432/mydb",
+                "type": "string",
+                "version": 1,
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            }
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secret)
+            secret = client.get_secret("proj-1", "production", "DATABASE_URL")
+
+            mock_request.assert_called_once_with(
+                "GET", "/api/v1/projects/proj-1/environments/production/secrets/DATABASE_URL", json=None
+            )
+            assert secret.key == "DATABASE_URL"
+            assert secret.value == "postgres://localhost:5432/mydb"
+
+    def test_create_secret(self, client, mock_response):
+        mock_secret = {
+            "secret": {
+                "id": "s-new",
+                "environment_id": "env-1",
+                "key": "NEW_SECRET",
+                "type": "string",
+                "description": "A new secret",
+                "version": 1,
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            }
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(201, mock_secret)
+            secret = client.create_secret("proj-1", "production", "NEW_SECRET", "secret-value", "A new secret")
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/projects/proj-1/environments/production/secrets",
+                json={"key": "NEW_SECRET", "value": "secret-value", "description": "A new secret"},
+            )
+            assert secret.key == "NEW_SECRET"
+
+    def test_update_secret(self, client, mock_response):
+        mock_secret = {
+            "secret": {
+                "id": "s1",
+                "environment_id": "env-1",
+                "key": "DATABASE_URL",
+                "type": "string",
+                "version": 2,
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-02T00:00:00Z",
+            }
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secret)
+            secret = client.update_secret("proj-1", "production", "DATABASE_URL", "postgres://newhost:5432/mydb")
+
+            mock_request.assert_called_once_with(
+                "PUT",
+                "/api/v1/projects/proj-1/environments/production/secrets/DATABASE_URL",
+                json={"value": "postgres://newhost:5432/mydb"},
+            )
+            assert secret.version == 2
+
+    def test_get_secret_history(self, client, mock_response):
+        mock_history = {
+            "history": [
+                {"id": "h1", "secret_id": "s1", "value": "old-value", "version": 1, "changed_by": "user-1", "changed_at": "2024-01-01T00:00:00Z"},
+                {"id": "h2", "secret_id": "s1", "value": "new-value", "version": 2, "changed_by": "user-1", "changed_at": "2024-01-02T00:00:00Z"},
+            ]
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_history)
+            history = client.get_secret_history("proj-1", "production", "DATABASE_URL")
+
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/projects/proj-1/environments/production/secrets/DATABASE_URL/history",
+                json=None,
+            )
+            assert len(history) == 2
+            assert history[0].version == 1
+            assert history[1].version == 2
+
 
 class TestGenerateEnvFile:
     """Tests for generate_env_file method."""
