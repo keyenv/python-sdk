@@ -15,7 +15,7 @@ class User:
     avatar_url: str | None = None
     auth_type: str | None = None
     team_id: str | None = None
-    project_id: str | None = None
+    project_ids: list[str] | None = None
     scopes: list[str] | None = None
     created_at: str | None = None
 
@@ -29,7 +29,7 @@ class User:
             avatar_url=data.get("avatar_url"),
             auth_type=data.get("auth_type"),
             team_id=data.get("team_id"),
-            project_id=data.get("project_id"),
+            project_ids=data.get("project_ids"),
             scopes=data.get("scopes"),
             created_at=data.get("created_at"),
         )

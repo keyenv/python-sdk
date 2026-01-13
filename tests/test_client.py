@@ -66,6 +66,25 @@ class TestKeyEnvAPICalls:
             assert user.id == "user-123"
             assert user.email == "test@example.com"
 
+    def test_get_current_user_service_token_with_project_ids(self, client, mock_response):
+        mock_token = {
+            "id": "token-123",
+            "auth_type": "service_token",
+            "team_id": "team-456",
+            "project_ids": ["proj-1", "proj-2"],
+            "scopes": ["read", "write"],
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_token)
+            user = client.get_current_user()
+
+            assert user.id == "token-123"
+            assert user.auth_type == "service_token"
+            assert user.team_id == "team-456"
+            assert user.project_ids == ["proj-1", "proj-2"]
+            assert user.scopes == ["read", "write"]
+
     def test_list_projects(self, client, mock_response):
         mock_projects = {
             "projects": [
