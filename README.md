@@ -106,6 +106,18 @@ for env in project.environments:
     print(f"  - {env.name}")
 ```
 
+### Service Token Info
+
+```python
+# Get current user or service token info
+user = client.get_current_user()
+
+if user.auth_type == "service_token":
+    # Service tokens can access multiple projects
+    print(f"Projects: {user.project_ids}")
+    print(f"Scopes: {user.scopes}")
+```
+
 ## Error Handling
 
 ```python
