@@ -1,7 +1,9 @@
 """KeyEnv type definitions."""
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
+
+EnvironmentRole = Literal["none", "read", "write", "admin"]
 
 
 @dataclass
@@ -201,4 +203,77 @@ class BulkImportResult:
             created=data.get("created", 0),
             updated=data.get("updated", 0),
             skipped=data.get("skipped", 0),
+        )
+
+
+@dataclass
+class EnvironmentPermission:
+    """Environment permission for a user."""
+
+    id: str
+    environment_id: str
+    user_id: str
+    role: EnvironmentRole
+    user_email: str | None = None
+    user_name: str | None = None
+    granted_by: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "EnvironmentPermission":
+        return cls(
+            id=data["id"],
+            environment_id=data["environment_id"],
+            user_id=data["user_id"],
+            role=data["role"],
+            user_email=data.get("user_email"),
+            user_name=data.get("user_name"),
+            granted_by=data.get("granted_by"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+        )
+
+
+@dataclass
+class MyPermission:
+    """User's own permission for an environment."""
+
+    environment_id: str
+    environment_name: str
+    role: EnvironmentRole
+    can_read: bool
+    can_write: bool
+    can_admin: bool
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MyPermission":
+        return cls(
+            environment_id=data["environment_id"],
+            environment_name=data["environment_name"],
+            role=data["role"],
+            can_read=data["can_read"],
+            can_write=data["can_write"],
+            can_admin=data["can_admin"],
+        )
+
+
+@dataclass
+class ProjectDefault:
+    """Default permission for an environment in a project."""
+
+    id: str
+    project_id: str
+    environment_name: str
+    default_role: EnvironmentRole
+    created_at: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ProjectDefault":
+        return cls(
+            id=data["id"],
+            project_id=data["project_id"],
+            environment_name=data["environment_name"],
+            default_role=data["default_role"],
+            created_at=data.get("created_at", ""),
         )

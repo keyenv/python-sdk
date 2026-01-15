@@ -12,7 +12,11 @@ from .types import (
     BulkImportResult,
     BulkSecretItem,
     Environment,
+    EnvironmentPermission,
+    EnvironmentRole,
+    MyPermission,
     Project,
+    ProjectDefault,
     ProjectWithEnvironments,
     Secret,
     SecretHistory,
@@ -366,3 +370,136 @@ class KeyEnv:
                 del _secrets_cache[key]
         else:
             _secrets_cache.clear()
+
+    # =========================================================================
+    # Environment Permissions
+    # =========================================================================
+
+    def list_permissions(
+        self, project_id: str, environment: str
+    ) -> list[EnvironmentPermission]:
+        """List permissions for an environment.
+
+        Args:
+            project_id: The project ID.
+            environment: The environment name.
+
+        Returns:
+            List of environment permissions.
+        """
+        data = self._request(
+            "GET", f"/api/v1/projects/{project_id}/environments/{environment}/permissions"
+        )
+        return [EnvironmentPermission.from_dict(p) for p in data.get("permissions", [])]
+
+    def set_permission(
+        self,
+        project_id: str,
+        environment: str,
+        user_id: str,
+        role: EnvironmentRole,
+    ) -> EnvironmentPermission:
+        """Set a user's permission for an environment.
+
+        Args:
+            project_id: The project ID.
+            environment: The environment name.
+            user_id: The user ID to set permission for.
+            role: The role to assign ("none", "read", "write", or "admin").
+
+        Returns:
+            The created or updated permission.
+        """
+        data = self._request(
+            "PUT",
+            f"/api/v1/projects/{project_id}/environments/{environment}/permissions/{user_id}",
+            {"role": role},
+        )
+        return EnvironmentPermission.from_dict(data)
+
+    def delete_permission(
+        self, project_id: str, environment: str, user_id: str
+    ) -> None:
+        """Delete a user's permission for an environment.
+
+        Args:
+            project_id: The project ID.
+            environment: The environment name.
+            user_id: The user ID to delete permission for.
+        """
+        self._request(
+            "DELETE",
+            f"/api/v1/projects/{project_id}/environments/{environment}/permissions/{user_id}",
+        )
+
+    def bulk_set_permissions(
+        self,
+        project_id: str,
+        environment: str,
+        permissions: list[dict[str, str]],
+    ) -> list[EnvironmentPermission]:
+        """Bulk set permissions for an environment.
+
+        Args:
+            project_id: The project ID.
+            environment: The environment name.
+            permissions: List of permission dicts with "user_id" and "role" keys.
+                Example: [{"user_id": "usr_123", "role": "read"}]
+
+        Returns:
+            List of created or updated permissions.
+        """
+        data = self._request(
+            "PUT",
+            f"/api/v1/projects/{project_id}/environments/{environment}/permissions",
+            {"permissions": permissions},
+        )
+        return [EnvironmentPermission.from_dict(p) for p in data.get("permissions", [])]
+
+    def get_my_permissions(self, project_id: str) -> tuple[list[MyPermission], bool]:
+        """Get my permissions for all environments in a project.
+
+        Args:
+            project_id: The project ID.
+
+        Returns:
+            Tuple of (permissions list, is_team_admin bool).
+        """
+        data = self._request("GET", f"/api/v1/projects/{project_id}/my-permissions")
+        permissions = [MyPermission.from_dict(p) for p in data.get("permissions", [])]
+        is_team_admin = data.get("is_team_admin", False)
+        return permissions, is_team_admin
+
+    def get_project_defaults(self, project_id: str) -> list[ProjectDefault]:
+        """Get default permissions for a project.
+
+        Args:
+            project_id: The project ID.
+
+        Returns:
+            List of project default permissions.
+        """
+        data = self._request("GET", f"/api/v1/projects/{project_id}/permissions/defaults")
+        return [ProjectDefault.from_dict(d) for d in data.get("defaults", [])]
+
+    def set_project_defaults(
+        self,
+        project_id: str,
+        defaults: list[dict[str, str]],
+    ) -> list[ProjectDefault]:
+        """Set default permissions for a project.
+
+        Args:
+            project_id: The project ID.
+            defaults: List of default dicts with "environment_name" and "default_role" keys.
+                Example: [{"environment_name": "production", "default_role": "read"}]
+
+        Returns:
+            List of updated project defaults.
+        """
+        data = self._request(
+            "PUT",
+            f"/api/v1/projects/{project_id}/permissions/defaults",
+            {"defaults": defaults},
+        )
+        return [ProjectDefault.from_dict(d) for d in data.get("defaults", [])]
