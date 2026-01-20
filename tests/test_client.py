@@ -534,3 +534,238 @@ class TestKeyEnvError:
     def test_str_representation_without_status(self):
         error = KeyEnvError("Test error")
         assert str(error) == "KeyEnvError: Test error"
+
+
+class TestCaching:
+    """Tests for secrets caching."""
+
+    @pytest.fixture
+    def mock_response(self):
+        def _mock_response(status_code=200, json_data=None):
+            response = MagicMock(spec=httpx.Response)
+            response.status_code = status_code
+            response.is_success = 200 <= status_code < 300
+            response.json.return_value = json_data or {}
+            response.text = ""
+            return response
+        return _mock_response
+
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        """Clear the cache before and after each test."""
+        from keyenv.client import _secrets_cache
+        _secrets_cache.clear()
+        yield
+        _secrets_cache.clear()
+
+    def test_cache_disabled_by_default(self, mock_response):
+        """Test that caching is disabled when cache_ttl is 0."""
+        mock_secrets = {
+            "secrets": [
+                {"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1},
+                {"id": "s2", "environment_id": "env-1", "key": "KEY2", "value": "value2", "type": "string", "version": 1},
+            ]
+        }
+
+        client = KeyEnv(token="test-token")
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets)
+
+            # First call
+            secrets1 = client.export_secrets("proj-1", "production")
+            # Second call - should hit API again (no cache)
+            secrets2 = client.export_secrets("proj-1", "production")
+
+            # API should be called twice
+            assert mock_request.call_count == 2
+            assert len(secrets1) == 2
+            assert len(secrets2) == 2
+
+        client.close()
+
+    def test_cache_hit_returns_cached_data(self, mock_response):
+        """Test that cached data is returned on cache hit."""
+        mock_secrets = {
+            "secrets": [
+                {"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1},
+            ]
+        }
+
+        client = KeyEnv(token="test-token", cache_ttl=300)  # 5 minutes
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets)
+
+            # First call - populates cache
+            secrets1 = client.export_secrets("proj-1", "production")
+            # Second call - should use cache
+            secrets2 = client.export_secrets("proj-1", "production")
+
+            # API should be called only once
+            assert mock_request.call_count == 1
+            assert secrets1 == secrets2
+
+        client.close()
+
+    def test_cache_expiration(self, mock_response):
+        """Test that cache expires after TTL."""
+        import time as time_module
+
+        mock_secrets_v1 = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "v1", "type": "string", "version": 1}]
+        }
+        mock_secrets_v2 = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "v2", "type": "string", "version": 2}]
+        }
+
+        client = KeyEnv(token="test-token", cache_ttl=1)  # 1 second TTL
+
+        with patch.object(client._client, "request") as mock_request:
+            # First call returns v1
+            mock_request.return_value = mock_response(200, mock_secrets_v1)
+            secrets1 = client.export_secrets("proj-1", "production")
+            assert secrets1[0].value == "v1"
+
+            # Second call (within TTL) - returns cached v1
+            secrets2 = client.export_secrets("proj-1", "production")
+            assert secrets2[0].value == "v1"
+            assert mock_request.call_count == 1
+
+            # Wait for cache to expire
+            time_module.sleep(1.1)
+
+            # Third call (after TTL) - should fetch new data
+            mock_request.return_value = mock_response(200, mock_secrets_v2)
+            secrets3 = client.export_secrets("proj-1", "production")
+            assert secrets3[0].value == "v2"
+            assert mock_request.call_count == 2
+
+        client.close()
+
+    def test_clear_cache_specific_environment(self, mock_response):
+        """Test clearing cache for a specific project/environment."""
+        from keyenv.client import _secrets_cache
+
+        mock_secrets = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+        }
+
+        client = KeyEnv(token="test-token", cache_ttl=300)
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets)
+
+            # Populate cache
+            client.export_secrets("proj-1", "production")
+            client.export_secrets("proj-1", "staging")
+            assert len(_secrets_cache) == 2
+
+            # Clear specific environment
+            client.clear_cache("proj-1", "production")
+            assert len(_secrets_cache) == 1
+            assert "proj-1:staging" in _secrets_cache
+
+        client.close()
+
+    def test_clear_cache_entire_project(self, mock_response):
+        """Test clearing cache for an entire project."""
+        from keyenv.client import _secrets_cache
+
+        mock_secrets = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+        }
+
+        client = KeyEnv(token="test-token", cache_ttl=300)
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets)
+
+            # Populate cache for multiple projects
+            client.export_secrets("proj-1", "production")
+            client.export_secrets("proj-1", "staging")
+            client.export_secrets("proj-2", "production")
+            assert len(_secrets_cache) == 3
+
+            # Clear entire project
+            client.clear_cache("proj-1")
+            assert len(_secrets_cache) == 1
+            assert "proj-2:production" in _secrets_cache
+
+        client.close()
+
+    def test_clear_cache_all(self, mock_response):
+        """Test clearing entire cache."""
+        from keyenv.client import _secrets_cache
+
+        mock_secrets = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+        }
+
+        client = KeyEnv(token="test-token", cache_ttl=300)
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets)
+
+            # Populate cache
+            client.export_secrets("proj-1", "production")
+            client.export_secrets("proj-2", "staging")
+            assert len(_secrets_cache) == 2
+
+            # Clear all
+            client.clear_cache()
+            assert len(_secrets_cache) == 0
+
+        client.close()
+
+    def test_cache_ttl_from_env_var(self, mock_response):
+        """Test that cache TTL can be set via environment variable."""
+        mock_secrets = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+        }
+
+        with patch.dict(os.environ, {"KEYENV_CACHE_TTL": "60"}):
+            client = KeyEnv(token="test-token")
+            assert client._cache_ttl == 60
+
+            with patch.object(client._client, "request") as mock_request:
+                mock_request.return_value = mock_response(200, mock_secrets)
+
+                # Cache should be enabled
+                client.export_secrets("proj-1", "production")
+                client.export_secrets("proj-1", "production")
+                assert mock_request.call_count == 1
+
+            client.close()
+
+    def test_constructor_cache_ttl_overrides_env_var(self, mock_response):
+        """Test that constructor cache_ttl overrides env var."""
+        with patch.dict(os.environ, {"KEYENV_CACHE_TTL": "60"}):
+            client = KeyEnv(token="test-token", cache_ttl=120)
+            assert client._cache_ttl == 120
+            client.close()
+
+    def test_cache_key_isolation(self, mock_response):
+        """Test that different project/environment combos have isolated caches."""
+        mock_secrets_prod = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "prod_value", "type": "string", "version": 1}]
+        }
+        mock_secrets_stag = {
+            "secrets": [{"id": "s2", "environment_id": "env-2", "key": "KEY1", "value": "stag_value", "type": "string", "version": 1}]
+        }
+
+        client = KeyEnv(token="test-token", cache_ttl=300)
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets_prod)
+            secrets_prod = client.export_secrets("proj-1", "production")
+
+            mock_request.return_value = mock_response(200, mock_secrets_stag)
+            secrets_stag = client.export_secrets("proj-1", "staging")
+
+            # Values should be different (isolated caches)
+            assert secrets_prod[0].value == "prod_value"
+            assert secrets_stag[0].value == "stag_value"
+            assert mock_request.call_count == 2
+
+        client.close()
