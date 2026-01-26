@@ -415,19 +415,21 @@ class TestSecretHistory:
         self._track_key(key)
 
         # Create a secret and update it to create history
+        # History stores previous versions only (not the current version)
         client.create_secret(project_slug, environment, key, "version_1")
         client.update_secret(project_slug, environment, key, "version_2")
         client.update_secret(project_slug, environment, key, "version_3")
 
-        # Get history
+        # Get history - should have 2 entries (versions 1 and 2)
+        # Version 3 is the current value, not in history
         history = client.get_secret_history(project_slug, environment, key)
 
         assert isinstance(history, list)
-        assert len(history) >= 3
+        assert len(history) >= 2
 
-        # History should be ordered by version
+        # History should be ordered by version descending (newest first)
         versions = [h.version for h in history]
-        assert versions == sorted(versions)
+        assert versions == sorted(versions, reverse=True)
 
 
 class TestUtilities:
