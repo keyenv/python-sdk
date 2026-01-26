@@ -47,7 +47,13 @@ class KeyEnv:
         >>> client = KeyEnv(token="your-token", cache_ttl=300)  # 5 minutes
     """
 
-    def __init__(self, token: str, timeout: float = DEFAULT_TIMEOUT, cache_ttl: int = 0):
+    def __init__(
+        self,
+        token: str,
+        timeout: float = DEFAULT_TIMEOUT,
+        cache_ttl: int = 0,
+        base_url: str | None = None,
+    ):
         """Initialize the KeyEnv client.
 
         Args:
@@ -55,6 +61,8 @@ class KeyEnv:
             timeout: Request timeout in seconds (default: 30).
             cache_ttl: Cache TTL in seconds for export_secrets/load_env (default: 0 = disabled).
                 Also configurable via KEYENV_CACHE_TTL env var.
+            base_url: Override the API base URL (default: https://api.keyenv.dev).
+                Also configurable via KEYENV_API_URL env var.
         """
         if not token:
             raise ValueError("KeyEnv token is required")
@@ -67,8 +75,13 @@ class KeyEnv:
         else:
             env_ttl = os.environ.get("KEYENV_CACHE_TTL", "0")
             self._cache_ttl = int(env_ttl) if env_ttl.isdigit() else 0
+        # Base URL: constructor option → env var → default
+        if base_url:
+            self._base_url = base_url
+        else:
+            self._base_url = os.environ.get("KEYENV_API_URL", BASE_URL)
         self._client = httpx.Client(
-            base_url=BASE_URL,
+            base_url=self._base_url,
             timeout=timeout,
             headers={
                 "Authorization": f"Bearer {token}",

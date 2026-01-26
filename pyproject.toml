@@ -37,8 +37,19 @@ Issues = "https://github.com/keyenv/python-sdk/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["keyenv"]
 
+[project.scripts]
+# No CLI scripts
+
+[tool.hatch.envs.default.scripts]
+test = "pytest tests/ -v --ignore=tests/test_integration.py"
+test-integration = "pytest tests/test_integration.py -v"
+test-all = "pytest tests/ -v"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (require live API)",
+]
 
 [tool.ruff]
 line-length = 100
