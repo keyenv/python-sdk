@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/keyenv/python-sdk/compare/v1.2.0...v1.2.1) (2026-02-01)
+
+
+### Bug Fixes
+
+* security and correctness fixes with test coverage ([5f72cd9](https://github.com/keyenv/python-sdk/commit/5f72cd93ea26a95f61ff1b735b11029c7e0115b7))
+
 ## [1.2.0](https://github.com/keyenv/python-sdk/compare/v1.1.0...v1.2.0) (2026-01-26)
 
 
