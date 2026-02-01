@@ -471,6 +471,87 @@ class TestGenerateEnvFile:
             assert 'WITH_QUOTES="say \\"hello\\""' in content
 
 
+class TestGenerateEnvFileDollarEscaping:
+    """Tests for $ escaping in generate_env_file."""
+
+    @pytest.fixture
+    def client(self):
+        client = KeyEnv(token="test-token")
+        yield client
+        client.close()
+
+    @pytest.fixture
+    def mock_response(self):
+        def _mock_response(status_code=200, json_data=None):
+            response = MagicMock(spec=httpx.Response)
+            response.status_code = status_code
+            response.is_success = 200 <= status_code < 300
+            response.json.return_value = json_data or {}
+            response.text = ""
+            return response
+        return _mock_response
+
+    def test_escapes_dollar_signs(self, client, mock_response):
+        mock_secrets = {
+            "secrets": [
+                {"id": "s1", "environment_id": "env-1", "key": "DOLLAR_VAR", "value": "price=$100", "type": "string", "version": 1},
+                {"id": "s2", "environment_id": "env-1", "key": "SIMPLE", "value": "no_special", "type": "string", "version": 1},
+            ]
+        }
+
+        with patch.object(client._client, "request") as mock_request:
+            mock_request.return_value = mock_response(200, mock_secrets)
+            content = client.generate_env_file("proj-1", "production")
+
+            assert 'DOLLAR_VAR="price=\\$100"' in content
+            assert "SIMPLE=no_special" in content
+
+
+class TestCacheIsolation:
+    """Tests that different client instances do not share cache."""
+
+    @pytest.fixture
+    def mock_response(self):
+        def _mock_response(status_code=200, json_data=None):
+            response = MagicMock(spec=httpx.Response)
+            response.status_code = status_code
+            response.is_success = 200 <= status_code < 300
+            response.json.return_value = json_data or {}
+            response.text = ""
+            return response
+        return _mock_response
+
+    def test_different_instances_have_separate_caches(self, mock_response):
+        mock_secrets_1 = {
+            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value_from_client1", "type": "string", "version": 1}]
+        }
+        mock_secrets_2 = {
+            "secrets": [{"id": "s2", "environment_id": "env-1", "key": "KEY1", "value": "value_from_client2", "type": "string", "version": 1}]
+        }
+
+        client1 = KeyEnv(token="token-1", cache_ttl=300)
+        client2 = KeyEnv(token="token-2", cache_ttl=300)
+
+        with patch.object(client1._client, "request") as mock_request1:
+            mock_request1.return_value = mock_response(200, mock_secrets_1)
+            secrets1 = client1.export_secrets("proj-1", "production")
+
+        with patch.object(client2._client, "request") as mock_request2:
+            mock_request2.return_value = mock_response(200, mock_secrets_2)
+            secrets2 = client2.export_secrets("proj-1", "production")
+
+        assert secrets1[0].value == "value_from_client1"
+        assert secrets2[0].value == "value_from_client2"
+
+        # Clearing client1's cache should not affect client2
+        client1.clear_cache()
+        assert len(client1._secrets_cache) == 0
+        assert len(client2._secrets_cache) == 1
+
+        client1.close()
+        client2.close()
+
+
 class TestLoadEnv:
     """Tests for load_env method."""
 
@@ -553,10 +634,7 @@ class TestCaching:
     @pytest.fixture(autouse=True)
     def clear_cache(self):
         """Clear the cache before and after each test."""
-        from keyenv.client import _secrets_cache
-        _secrets_cache.clear()
         yield
-        _secrets_cache.clear()
 
     def test_cache_disabled_by_default(self, mock_response):
         """Test that caching is disabled when cache_ttl is 0."""
@@ -645,8 +723,6 @@ class TestCaching:
 
     def test_clear_cache_specific_environment(self, mock_response):
         """Test clearing cache for a specific project/environment."""
-        from keyenv.client import _secrets_cache
-
         mock_secrets = {
             "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
         }
@@ -659,19 +735,17 @@ class TestCaching:
             # Populate cache
             client.export_secrets("proj-1", "production")
             client.export_secrets("proj-1", "staging")
-            assert len(_secrets_cache) == 2
+            assert len(client._secrets_cache) == 2
 
             # Clear specific environment
             client.clear_cache("proj-1", "production")
-            assert len(_secrets_cache) == 1
-            assert "proj-1:staging" in _secrets_cache
+            assert len(client._secrets_cache) == 1
+            assert "proj-1:staging" in client._secrets_cache
 
         client.close()
 
     def test_clear_cache_entire_project(self, mock_response):
         """Test clearing cache for an entire project."""
-        from keyenv.client import _secrets_cache
-
         mock_secrets = {
             "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
         }
@@ -685,19 +759,17 @@ class TestCaching:
             client.export_secrets("proj-1", "production")
             client.export_secrets("proj-1", "staging")
             client.export_secrets("proj-2", "production")
-            assert len(_secrets_cache) == 3
+            assert len(client._secrets_cache) == 3
 
             # Clear entire project
             client.clear_cache("proj-1")
-            assert len(_secrets_cache) == 1
-            assert "proj-2:production" in _secrets_cache
+            assert len(client._secrets_cache) == 1
+            assert "proj-2:production" in client._secrets_cache
 
         client.close()
 
     def test_clear_cache_all(self, mock_response):
         """Test clearing entire cache."""
-        from keyenv.client import _secrets_cache
-
         mock_secrets = {
             "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
         }
@@ -710,11 +782,11 @@ class TestCaching:
             # Populate cache
             client.export_secrets("proj-1", "production")
             client.export_secrets("proj-2", "staging")
-            assert len(_secrets_cache) == 2
+            assert len(client._secrets_cache) == 2
 
             # Clear all
             client.clear_cache()
-            assert len(_secrets_cache) == 0
+            assert len(client._secrets_cache) == 0
 
         client.close()
 

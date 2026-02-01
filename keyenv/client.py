@@ -27,10 +27,6 @@ from .types import (
 BASE_URL = "https://api.keyenv.dev"
 DEFAULT_TIMEOUT = 30.0
 
-# Module-level cache for secrets (survives across warm serverless invocations)
-_secrets_cache: dict[str, tuple[list[SecretWithValue], float]] = {}
-
-
 def _get_cache_key(project_id: str, environment: str) -> str:
     return f"{project_id}:{environment}"
 
@@ -80,6 +76,7 @@ class KeyEnv:
             self._base_url = base_url
         else:
             self._base_url = os.environ.get("KEYENV_API_URL", BASE_URL)
+        self._secrets_cache: dict[str, tuple[list[SecretWithValue], float]] = {}
         self._client = httpx.Client(
             base_url=self._base_url,
             timeout=timeout,
@@ -206,11 +203,13 @@ class KeyEnv:
 
         # Check cache if TTL > 0
         if self._cache_ttl > 0:
-            cached = _secrets_cache.get(cache_key)
+            cached = self._secrets_cache.get(cache_key)
             if cached is not None:
                 secrets, expires_at = cached
                 if time.time() < expires_at:
                     return secrets
+                # Delete expired entry to prevent memory leaks
+                del self._secrets_cache[cache_key]
 
         data = self._request(
             "GET", f"/api/v1/projects/{project_id}/environments/{environment}/secrets/export"
@@ -219,7 +218,7 @@ class KeyEnv:
 
         # Store in cache if TTL > 0
         if self._cache_ttl > 0:
-            _secrets_cache[cache_key] = (secrets, time.time() + self._cache_ttl)
+            self._secrets_cache[cache_key] = (secrets, time.time() + self._cache_ttl)
 
         return secrets
 
@@ -354,8 +353,8 @@ class KeyEnv:
 
         for secret in secrets:
             value = secret.value
-            if "\n" in value or '"' in value or "'" in value or " " in value:
-                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+            if "\n" in value or '"' in value or "'" in value or " " in value or "$" in value:
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("$", "\\$")
                 lines.append(f'{secret.key}="{escaped}"')
             else:
                 lines.append(f"{secret.key}={value}")
@@ -373,16 +372,16 @@ class KeyEnv:
         """
         if project_id and environment:
             cache_key = _get_cache_key(project_id, environment)
-            _secrets_cache.pop(cache_key, None)
+            self._secrets_cache.pop(cache_key, None)
         elif project_id:
             # Clear all environments for this project
             keys_to_delete = [
-                k for k in _secrets_cache.keys() if k.startswith(f"{project_id}:")
+                k for k in self._secrets_cache.keys() if k.startswith(f"{project_id}:")
             ]
             for key in keys_to_delete:
-                del _secrets_cache[key]
+                del self._secrets_cache[key]
         else:
-            _secrets_cache.clear()
+            self._secrets_cache.clear()
 
     # =========================================================================
     # Environment Permissions
