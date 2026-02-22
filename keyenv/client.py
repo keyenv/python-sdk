@@ -131,7 +131,7 @@ class KeyEnv:
     def get_current_user(self) -> User:
         """Get the current user or service token info."""
         data = self._request("GET", "/api/v1/users/me")
-        return User.from_dict(data)
+        return User.from_dict(data.get("data", data))
 
     def validate_token(self) -> User:
         """Validate the token and return user info."""
@@ -149,12 +149,12 @@ class KeyEnv:
     def get_project(self, project_id: str) -> ProjectWithEnvironments:
         """Get a project by ID."""
         data = self._request("GET", f"/api/v1/projects/{project_id}")
-        return ProjectWithEnvironments.from_dict(data)
+        return ProjectWithEnvironments.from_dict(data.get("data", data))
 
     def create_project(self, team_id: str, name: str) -> Project:
         """Create a new project."""
         data = self._request("POST", "/api/v1/projects", {"team_id": team_id, "name": name})
-        return Project.from_dict(data)
+        return Project.from_dict(data.get("data", data))
 
     def delete_project(self, project_id: str) -> None:
         """Delete a project."""
@@ -177,7 +177,7 @@ class KeyEnv:
         if inherits_from:
             payload["inherits_from"] = inherits_from
         data = self._request("POST", f"/api/v1/projects/{project_id}/environments", payload)
-        return Environment.from_dict(data)
+        return Environment.from_dict(data.get("data", data))
 
     def delete_environment(self, project_id: str, environment: str) -> None:
         """Delete an environment."""

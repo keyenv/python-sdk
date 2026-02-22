@@ -59,7 +59,7 @@ class TestKeyEnvAPICalls:
         }
 
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(200, mock_user)
+            mock_request.return_value = mock_response(200, {"data": mock_user})
             user = client.get_current_user()
 
             mock_request.assert_called_once_with("GET", "/api/v1/users/me", json=None)
@@ -76,7 +76,7 @@ class TestKeyEnvAPICalls:
         }
 
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(200, mock_token)
+            mock_request.return_value = mock_response(200, {"data": mock_token})
             user = client.get_current_user()
 
             assert user.id == "token-123"
@@ -236,7 +236,7 @@ class TestKeyEnvAPICalls:
         }
 
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(200, mock_project)
+            mock_request.return_value = mock_response(200, {"data": mock_project})
             project = client.get_project("proj-1")
 
             mock_request.assert_called_once_with("GET", "/api/v1/projects/proj-1", json=None)
@@ -254,7 +254,7 @@ class TestKeyEnvAPICalls:
         }
 
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(201, mock_project)
+            mock_request.return_value = mock_response(201, {"data": mock_project})
             project = client.create_project("team-1", "New Project")
 
             mock_request.assert_called_once_with(
@@ -298,7 +298,7 @@ class TestKeyEnvAPICalls:
         }
 
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(201, mock_environment)
+            mock_request.return_value = mock_response(201, {"data": mock_environment})
             environment = client.create_environment("proj-1", "staging", "development")
 
             mock_request.assert_called_once_with(
