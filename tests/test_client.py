@@ -200,7 +200,7 @@ class TestKeyEnvAPICalls:
             assert result is None
 
     def test_bulk_import(self, client, mock_response):
-        mock_result = {"created": 2, "updated": 0, "skipped": 0}
+        mock_result = {"data": {"created": 2, "updated": 0, "skipped": 0}}
 
         with patch.object(client._client, "request") as mock_request:
             mock_request.return_value = mock_response(200, mock_result)

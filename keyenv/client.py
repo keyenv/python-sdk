@@ -144,7 +144,7 @@ class KeyEnv:
     def list_projects(self) -> list[Project]:
         """List all accessible projects."""
         data = self._request("GET", "/api/v1/projects")
-        return [Project.from_dict(p) for p in data.get("projects", [])]
+        return [Project.from_dict(p) for p in data.get("data", [])]
 
     def get_project(self, project_id: str) -> ProjectWithEnvironments:
         """Get a project by ID."""
@@ -167,7 +167,7 @@ class KeyEnv:
     def list_environments(self, project_id: str) -> list[Environment]:
         """List environments in a project."""
         data = self._request("GET", f"/api/v1/projects/{project_id}/environments")
-        return [Environment.from_dict(e) for e in data.get("environments", [])]
+        return [Environment.from_dict(e) for e in data.get("data", [])]
 
     def create_environment(
         self, project_id: str, name: str, inherits_from: str | None = None
@@ -192,7 +192,7 @@ class KeyEnv:
         data = self._request(
             "GET", f"/api/v1/projects/{project_id}/environments/{environment}/secrets"
         )
-        return [Secret.from_dict(s) for s in data.get("secrets", [])]
+        return [Secret.from_dict(s) for s in data.get("data", [])]
 
     def export_secrets(self, project_id: str, environment: str) -> list[SecretWithValue]:
         """Export all secrets with their decrypted values.
@@ -214,7 +214,7 @@ class KeyEnv:
         data = self._request(
             "GET", f"/api/v1/projects/{project_id}/environments/{environment}/secrets/export"
         )
-        secrets = [SecretWithValue.from_dict(s) for s in data.get("secrets", [])]
+        secrets = [SecretWithValue.from_dict(s) for s in data.get("data", [])]
 
         # Store in cache if TTL > 0
         if self._cache_ttl > 0:
@@ -232,7 +232,7 @@ class KeyEnv:
         data = self._request(
             "GET", f"/api/v1/projects/{project_id}/environments/{environment}/secrets/{key}"
         )
-        return SecretWithValue.from_dict(data.get("secret", data))
+        return SecretWithValue.from_dict(data.get("data", data))
 
     def create_secret(
         self,
@@ -252,7 +252,7 @@ class KeyEnv:
             payload,
         )
         self.clear_cache(project_id, environment)
-        return Secret.from_dict(data.get("secret", data))
+        return Secret.from_dict(data.get("data", data))
 
     def update_secret(
         self,
@@ -272,7 +272,7 @@ class KeyEnv:
             payload,
         )
         self.clear_cache(project_id, environment)
-        return Secret.from_dict(data.get("secret", data))
+        return Secret.from_dict(data.get("data", data))
 
     def set_secret(
         self,
@@ -305,7 +305,7 @@ class KeyEnv:
             "GET",
             f"/api/v1/projects/{project_id}/environments/{environment}/secrets/{key}/history",
         )
-        return [SecretHistory.from_dict(h) for h in data.get("history", [])]
+        return [SecretHistory.from_dict(h) for h in data.get("data", [])]
 
     def bulk_import(
         self,
@@ -324,7 +324,7 @@ class KeyEnv:
             {"secrets": secret_list, "overwrite": overwrite},
         )
         self.clear_cache(project_id, environment)
-        return BulkImportResult.from_dict(data)
+        return BulkImportResult.from_dict(data.get("data", data))
 
     # =========================================================================
     # Utilities
@@ -402,7 +402,7 @@ class KeyEnv:
         data = self._request(
             "GET", f"/api/v1/projects/{project_id}/environments/{environment}/permissions"
         )
-        return [EnvironmentPermission.from_dict(p) for p in data.get("permissions", [])]
+        return [EnvironmentPermission.from_dict(p) for p in data.get("data", [])]
 
     def set_permission(
         self,
@@ -466,7 +466,7 @@ class KeyEnv:
             f"/api/v1/projects/{project_id}/environments/{environment}/permissions",
             {"permissions": permissions},
         )
-        return [EnvironmentPermission.from_dict(p) for p in data.get("permissions", [])]
+        return [EnvironmentPermission.from_dict(p) for p in data.get("data", [])]
 
     def get_my_permissions(self, project_id: str) -> tuple[list[MyPermission], bool]:
         """Get my permissions for all environments in a project.
@@ -492,7 +492,7 @@ class KeyEnv:
             List of project default permissions.
         """
         data = self._request("GET", f"/api/v1/projects/{project_id}/permissions/defaults")
-        return [ProjectDefault.from_dict(d) for d in data.get("defaults", [])]
+        return [ProjectDefault.from_dict(d) for d in data.get("data", [])]
 
     def set_project_defaults(
         self,
@@ -514,4 +514,4 @@ class KeyEnv:
             f"/api/v1/projects/{project_id}/permissions/defaults",
             {"defaults": defaults},
         )
-        return [ProjectDefault.from_dict(d) for d in data.get("defaults", [])]
+        return [ProjectDefault.from_dict(d) for d in data.get("data", [])]
