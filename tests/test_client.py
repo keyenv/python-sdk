@@ -87,7 +87,7 @@ class TestKeyEnvAPICalls:
 
     def test_list_projects(self, client, mock_response):
         mock_projects = {
-            "projects": [
+            "data": [
                 {"id": "proj-1", "team_id": "team-1", "name": "Project 1", "slug": "project-1"},
                 {"id": "proj-2", "team_id": "team-1", "name": "Project 2", "slug": "project-2"},
             ]
@@ -103,7 +103,7 @@ class TestKeyEnvAPICalls:
 
     def test_export_secrets(self, client, mock_response):
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "DATABASE_URL", "value": "postgres://...", "type": "string", "version": 1},
                 {"id": "s2", "environment_id": "env-1", "key": "API_KEY", "value": "sk_test_...", "type": "string", "version": 1},
             ]
@@ -124,7 +124,7 @@ class TestKeyEnvAPICalls:
 
     def test_export_secrets_as_dict(self, client, mock_response):
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "DATABASE_URL", "value": "postgres://localhost", "type": "string", "version": 1},
                 {"id": "s2", "environment_id": "env-1", "key": "API_KEY", "value": "sk_test_123", "type": "string", "version": 1},
             ]
@@ -147,7 +147,7 @@ class TestKeyEnvAPICalls:
             error_response = mock_response(404)
             error_response.json.return_value = {"error": "Not found"}
             # Second call (create) succeeds
-            success_response = mock_response(201, {"secret": mock_secret})
+            success_response = mock_response(201, {"data": mock_secret})
 
             mock_request.side_effect = [error_response, success_response]
 
@@ -273,7 +273,7 @@ class TestKeyEnvAPICalls:
 
     def test_list_environments(self, client, mock_response):
         mock_environments = {
-            "environments": [
+            "data": [
                 {"id": "env-1", "project_id": "proj-1", "name": "development", "created_at": "2024-01-01T00:00:00Z"},
                 {"id": "env-2", "project_id": "proj-1", "name": "staging", "created_at": "2024-01-01T00:00:00Z"},
                 {"id": "env-3", "project_id": "proj-1", "name": "production", "created_at": "2024-01-01T00:00:00Z"},
@@ -321,7 +321,7 @@ class TestKeyEnvAPICalls:
 
     def test_list_secrets(self, client, mock_response):
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "DATABASE_URL", "type": "string", "version": 1, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z"},
                 {"id": "s2", "environment_id": "env-1", "key": "API_KEY", "type": "string", "version": 1, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z"},
             ]
@@ -339,7 +339,7 @@ class TestKeyEnvAPICalls:
 
     def test_get_secret(self, client, mock_response):
         mock_secret = {
-            "secret": {
+            "data": {
                 "id": "s1",
                 "environment_id": "env-1",
                 "key": "DATABASE_URL",
@@ -363,7 +363,7 @@ class TestKeyEnvAPICalls:
 
     def test_create_secret(self, client, mock_response):
         mock_secret = {
-            "secret": {
+            "data": {
                 "id": "s-new",
                 "environment_id": "env-1",
                 "key": "NEW_SECRET",
@@ -388,7 +388,7 @@ class TestKeyEnvAPICalls:
 
     def test_update_secret(self, client, mock_response):
         mock_secret = {
-            "secret": {
+            "data": {
                 "id": "s1",
                 "environment_id": "env-1",
                 "key": "DATABASE_URL",
@@ -412,7 +412,7 @@ class TestKeyEnvAPICalls:
 
     def test_get_secret_history(self, client, mock_response):
         mock_history = {
-            "history": [
+            "data": [
                 {"id": "h1", "secret_id": "s1", "value": "old-value", "version": 1, "changed_by": "user-1", "changed_at": "2024-01-01T00:00:00Z"},
                 {"id": "h2", "secret_id": "s1", "value": "new-value", "version": 2, "changed_by": "user-1", "changed_at": "2024-01-02T00:00:00Z"},
             ]
@@ -454,7 +454,7 @@ class TestGenerateEnvFile:
 
     def test_generates_valid_env_content(self, client, mock_response):
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "SIMPLE", "value": "value", "type": "string", "version": 1},
                 {"id": "s2", "environment_id": "env-1", "key": "WITH_SPACES", "value": "hello world", "type": "string", "version": 1},
                 {"id": "s3", "environment_id": "env-1", "key": "WITH_QUOTES", "value": 'say "hello"', "type": "string", "version": 1},
@@ -493,7 +493,7 @@ class TestGenerateEnvFileDollarEscaping:
 
     def test_escapes_dollar_signs(self, client, mock_response):
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "DOLLAR_VAR", "value": "price=$100", "type": "string", "version": 1},
                 {"id": "s2", "environment_id": "env-1", "key": "SIMPLE", "value": "no_special", "type": "string", "version": 1},
             ]
@@ -523,10 +523,10 @@ class TestCacheIsolation:
 
     def test_different_instances_have_separate_caches(self, mock_response):
         mock_secrets_1 = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value_from_client1", "type": "string", "version": 1}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value_from_client1", "type": "string", "version": 1}]
         }
         mock_secrets_2 = {
-            "secrets": [{"id": "s2", "environment_id": "env-1", "key": "KEY1", "value": "value_from_client2", "type": "string", "version": 1}]
+            "data": [{"id": "s2", "environment_id": "env-1", "key": "KEY1", "value": "value_from_client2", "type": "string", "version": 1}]
         }
 
         client1 = KeyEnv(token="token-1", cache_ttl=300)
@@ -574,7 +574,7 @@ class TestLoadEnv:
 
     def test_loads_secrets_into_environ(self, client, mock_response):
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "TEST_VAR_1", "value": "test_value_1", "type": "string", "version": 1},
                 {"id": "s2", "environment_id": "env-1", "key": "TEST_VAR_2", "value": "test_value_2", "type": "string", "version": 1},
             ]
@@ -639,7 +639,7 @@ class TestCaching:
     def test_cache_disabled_by_default(self, mock_response):
         """Test that caching is disabled when cache_ttl is 0."""
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1},
                 {"id": "s2", "environment_id": "env-1", "key": "KEY2", "value": "value2", "type": "string", "version": 1},
             ]
@@ -665,7 +665,7 @@ class TestCaching:
     def test_cache_hit_returns_cached_data(self, mock_response):
         """Test that cached data is returned on cache hit."""
         mock_secrets = {
-            "secrets": [
+            "data": [
                 {"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1},
             ]
         }
@@ -691,10 +691,10 @@ class TestCaching:
         import time as time_module
 
         mock_secrets_v1 = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "v1", "type": "string", "version": 1}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "v1", "type": "string", "version": 1}]
         }
         mock_secrets_v2 = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "v2", "type": "string", "version": 2}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "v2", "type": "string", "version": 2}]
         }
 
         client = KeyEnv(token="test-token", cache_ttl=1)  # 1 second TTL
@@ -724,7 +724,7 @@ class TestCaching:
     def test_clear_cache_specific_environment(self, mock_response):
         """Test clearing cache for a specific project/environment."""
         mock_secrets = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
         }
 
         client = KeyEnv(token="test-token", cache_ttl=300)
@@ -747,7 +747,7 @@ class TestCaching:
     def test_clear_cache_entire_project(self, mock_response):
         """Test clearing cache for an entire project."""
         mock_secrets = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
         }
 
         client = KeyEnv(token="test-token", cache_ttl=300)
@@ -771,7 +771,7 @@ class TestCaching:
     def test_clear_cache_all(self, mock_response):
         """Test clearing entire cache."""
         mock_secrets = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
         }
 
         client = KeyEnv(token="test-token", cache_ttl=300)
@@ -793,7 +793,7 @@ class TestCaching:
     def test_cache_ttl_from_env_var(self, mock_response):
         """Test that cache TTL can be set via environment variable."""
         mock_secrets = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "value1", "type": "string", "version": 1}]
         }
 
         with patch.dict(os.environ, {"KEYENV_CACHE_TTL": "60"}):
@@ -820,10 +820,10 @@ class TestCaching:
     def test_cache_key_isolation(self, mock_response):
         """Test that different project/environment combos have isolated caches."""
         mock_secrets_prod = {
-            "secrets": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "prod_value", "type": "string", "version": 1}]
+            "data": [{"id": "s1", "environment_id": "env-1", "key": "KEY1", "value": "prod_value", "type": "string", "version": 1}]
         }
         mock_secrets_stag = {
-            "secrets": [{"id": "s2", "environment_id": "env-2", "key": "KEY1", "value": "stag_value", "type": "string", "version": 1}]
+            "data": [{"id": "s2", "environment_id": "env-2", "key": "KEY1", "value": "stag_value", "type": "string", "version": 1}]
         }
 
         client = KeyEnv(token="test-token", cache_ttl=300)

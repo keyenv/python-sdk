@@ -29,7 +29,7 @@ class TestListPermissions:
 
     def test_list_permissions_success(self, client, mock_response):
         mock_permissions = {
-            "permissions": [
+            "data": [
                 {
                     "id": "perm_1",
                     "environment_id": "env_1",
@@ -73,7 +73,7 @@ class TestListPermissions:
 
     def test_list_permissions_empty(self, client, mock_response):
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(200, {"permissions": []})
+            mock_request.return_value = mock_response(200, {"data": []})
             result = client.list_permissions("proj_1", "development")
 
             assert result == []
@@ -319,7 +319,7 @@ class TestBulkSetPermissions:
 
     def test_bulk_set_permissions_success(self, client, mock_response):
         mock_permissions = {
-            "permissions": [
+            "data": [
                 {
                     "id": "perm_1",
                     "environment_id": "env_1",
@@ -360,7 +360,7 @@ class TestBulkSetPermissions:
 
     def test_bulk_set_permissions_empty_list(self, client, mock_response):
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(200, {"permissions": []})
+            mock_request.return_value = mock_response(200, {"data": []})
             result = client.bulk_set_permissions("proj_1", "development", [])
 
             mock_request.assert_called_once_with(
@@ -372,7 +372,7 @@ class TestBulkSetPermissions:
 
     def test_bulk_set_permissions_mixed_roles(self, client, mock_response):
         mock_permissions = {
-            "permissions": [
+            "data": [
                 {"id": "perm_1", "environment_id": "env_1", "user_id": "user_1", "role": "admin", "created_at": "", "updated_at": ""},
                 {"id": "perm_2", "environment_id": "env_1", "user_id": "user_2", "role": "write", "created_at": "", "updated_at": ""},
                 {"id": "perm_3", "environment_id": "env_1", "user_id": "user_3", "role": "read", "created_at": "", "updated_at": ""},
@@ -572,7 +572,7 @@ class TestGetProjectDefaults:
 
     def test_get_project_defaults_success(self, client, mock_response):
         mock_defaults = {
-            "defaults": [
+            "data": [
                 {
                     "id": "def_1",
                     "project_id": "proj_1",
@@ -607,7 +607,7 @@ class TestGetProjectDefaults:
 
     def test_get_project_defaults_empty(self, client, mock_response):
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(200, {"defaults": []})
+            mock_request.return_value = mock_response(200, {"data": []})
             result = client.get_project_defaults("proj_1")
 
             assert result == []
@@ -653,7 +653,7 @@ class TestSetProjectDefaults:
 
     def test_set_project_defaults_success(self, client, mock_response):
         mock_defaults = {
-            "defaults": [
+            "data": [
                 {
                     "id": "def_1",
                     "project_id": "proj_1",
@@ -692,7 +692,7 @@ class TestSetProjectDefaults:
 
     def test_set_project_defaults_empty_list(self, client, mock_response):
         with patch.object(client._client, "request") as mock_request:
-            mock_request.return_value = mock_response(200, {"defaults": []})
+            mock_request.return_value = mock_response(200, {"data": []})
             result = client.set_project_defaults("proj_1", [])
 
             mock_request.assert_called_once_with(
