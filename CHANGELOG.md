@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.1](https://github.com/keyenv/python-sdk/compare/v1.2.0...v1.2.1) (2026-02-24)
+
+
+### Bug Fixes
+
+* security and correctness fixes with test coverage ([5f72cd9](https://github.com/keyenv/python-sdk/commit/5f72cd93ea26a95f61ff1b735b11029c7e0115b7))
+* standardize API response envelope to use data wrapper ([ad62058](https://github.com/keyenv/python-sdk/commit/ad620581b6f0e45900a0d7a3eac290673e0b249a))
+* unwrap data envelope for single-resource API responses ([bf24260](https://github.com/keyenv/python-sdk/commit/bf242604a715c9544d58c7c2d232564551dac777))
+* update test mocks to match data envelope response format ([c2919c1](https://github.com/keyenv/python-sdk/commit/c2919c13bddf9960b1f814f5435539d8a6d7fd8f))
+
 ## [1.2.0](https://github.com/keyenv/python-sdk/compare/v1.1.0...v1.2.0) (2026-01-26)
 
 
